@@ -8,7 +8,35 @@ import (
 	"github.com/robfig/cron/v3"
 )
 
+type CronSpec string
+
+func (spec CronSpec) Schedule() cron.Schedule {
+	s, _ := cron.ParseStandard(string(spec))
+	return s
+}
+
+func (spec *CronSpec) UnmarshalText(text []byte) error {
+	s := string(text)
+
+	switch s {
+	case "@never":
+		return nil
+	default:
+		_, err := cron.ParseStandard(s)
+		if err != nil {
+			return fmt.Errorf("invalid cron spec: %s: %w", s, err)
+		}
+		*spec = CronSpec(s)
+	}
+
+	return nil
+}
+
 func FromCronSchedule(schedule cron.Schedule) observable.Observable[time.Time] {
+	if schedule == nil {
+		return observable.Empty[time.Time]()
+	}
+
 	next := func() time.Duration {
 		now := time.Now()
 		return schedule.Next(now).Sub(now)
